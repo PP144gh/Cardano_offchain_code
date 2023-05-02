@@ -1,0 +1,9 @@
+{
+	"1618033988": {
+		"contractAddress": "addr_test1wzwhcytapqaq75fczezhvz8q8rlduqe46u3g4zyltgwrgpc2a3g57",
+		"policyId": "b07e93bbd62bf5f0fdb6243d58564bae2a5b80c7f6917faf1f7bf4d8",
+		"tokenName": "RASC",
+		"datumInt": "14",
+		"withdrawalAmount": "1"
+	}
+}

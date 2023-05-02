@@ -1,0 +1,561 @@
+#generate keys
+
+cardano-cli address key-gen \
+    --verification-key-file payment.vkey \
+    --signing-key-file payment.skey
+
+cardano-cli stake-address key-gen \
+    --verification-key-file stake.vkey \
+    --signing-key-file stake.skey
+
+
+cardano-cli address build \
+    --payment-verification-key-file payment.vkey \
+    --stake-verification-key-file stake.vkey \
+    --out-file payment.addr \
+    --testnet-magic 1
+
+cardano-cli stake-address build \
+    --stake-verification-key-file stake.vkey \
+    --out-file stake.addr \
+    --testnet-magic 1
+
+
+
+myadd=$(cat payment.addr)
+cardano-cli query utxo     --address $myadd     --testnet-magic 1
+
+eternladd=addr_test1qrlunp4mgmpmqh6l3l6u63j9435hkqm7wxwmllywhdxmwjl9594dvq7urxy0aqwleqz35eaglw3f5rrkx7l9slz55pxqtukwj8
+
+#1M lovelace = 1 ADA
+
+##SIMPLE TRANSACTION 1 utxo in 1 address out + change##
+
+cardano-cli transaction build \
+--babbage-era \
+--testnet-magic 1 \
+--tx-in 1d5eb7b019500b2569857594640bd87b429d40ab1a3ef4cf55d072cff5eae543#0 \
+--tx-out $sc+5000000 \
+--change-address $myadd \
+--out-file tx.draft
+
+#this part must be done airgapped. .skey files must be safe.
+
+
+cardano-cli transaction sign \
+--tx-body-file tx.draft \
+--signing-key-file payment.skey \
+--testnet-magic 1 \
+--out-file tx.signed
+
+
+
+cardano-cli transaction submit \
+--testnet-magic 1 \
+--tx-file tx.signed
+
+
+#sending an nft or ft
+TXIN=84be2471f0834ae77c422a3bd5173855b5e2fe80219f49775546a75b8844ff48#0
+TXIN_NFT=84be2471f0834ae77c422a3bd5173855b5e2fe80219f49775546a75b8844ff48#1
+eternladd=addr_test1qrlunp4mgmpmqh6l3l6u63j9435hkqm7wxwmllywhdxmwjl9594dvq7urxy0aqwleqz35eaglw3f5rrkx7l9slz55pxqtukwj8
+POLICYID=b07e93bbd62bf5f0fdb6243d58564bae2a5b80c7f6917faf1f7bf4d8
+ASSETNAME="54455354"
+myadd=$(cat payment.addr)
+
+cardano-cli transaction build \
+--babbage-era \
+--testnet-magic 1 \
+--tx-in $TXIN \
+--tx-in $TXIN_NFT \
+--tx-out $eternladd+2000000+"1 $POLICYID.$ASSETNAME" \
+--change-address $myadd \
+--out-file tx.draft
+
+#this part must be done airgapped. .skey files must be safe.
+
+
+cardano-cli transaction sign \
+--tx-body-file tx.draft \
+--signing-key-file payment.skey \
+--testnet-magic 1 \
+--out-file tx.signed
+
+
+
+cardano-cli transaction submit \
+--testnet-magic 1 \
+--tx-file tx.signed
+
+
+
+
+##minting token transaction##
+
+#gerar policy id
+#get address owner hash
+
+cardano-cli address key-hash --payment-verification-key-file payment.vkey
+
+touch ft-policy.script
+#write in file
+{
+    "keyHash": "22117fbd0f86a213ae4f4d824cd0d38eea29e49764ae22f5f50ba3d3",
+    "type": "sig"
+}
+
+#substitute keyhash value for your address hash
+
+cardano-cli transaction policyid --script-file ft-policy.script
+
+the result of this command is your minting policy id.
+
+POLICYID=b07e93bbd62bf5f0fdb6243d58564bae2a5b80c7f6917faf1f7bf4d8
+TXIN=7aac7a8cdfaa28713e187f8bf7b200bf9feb84077532b616f7707fceec1bd4c2#0
+#"string" converter para hexadecimal pro tokenname1
+TOKENNAME1="52415343"
+POLICYSCRIPT="ft-policy.script"
+MINTER=addr_test1qq524yfk9emdh0r9xl37afv7d2nxpva3r8v2qvsj9dy5l8u6zqhd5s8yv6rvrmgmdf75j4v9p5yrhawlhjm3n0lf3dhsnrvwwn
+MINTERKEY=payment.skey
+
+cardano-cli transaction build \
+--babbage-era \
+--testnet-magic 1 \
+--tx-in $TXIN \
+--tx-out $MINTER+"1500000 + 25 $POLICYID.$TOKENNAME1" \
+--mint "25 $POLICYID.$TOKENNAME1" \
+--mint-script-file $POLICYSCRIPT \
+--change-address $MINTER \
+--protocol-params-file ../../preprod-protocol.json \
+--out-file mint-native-assets.raw
+
+cardano-cli transaction sign \
+--signing-key-file $MINTERKEY \
+--testnet-magic 1 \
+--tx-body-file mint-native-assets.raw \
+--out-file mint-native-assets.signed
+
+cardano-cli transaction submit \
+--tx-file mint-native-assets.signed \
+--testnet-magic 1
+
+
+#minting token trough plutus script
+
+MINTER=addr_test1qqrgx6k9uy8e0ptnu2waezxrr50g0s7f4g03wsfgkzaahatm8g7sltzunpd89gl0u6lh2p3uhpu2mq82gzwym879e0vs5qmsj6
+MINTERKEY=payment.skey
+TXIN=baa6a7013d06d7c3518e207764014d144ee59cdbea0640e56f4254f5f4de6fba#0
+TXIN2=bbcecc59f6554f9fa192dcbf8582d866bfde72bfd92996841a8cbf09a0b7c1c2#0
+COLLATERAL=baa6a7013d06d7c3518e207764014d144ee59cdbea0640e56f4254f5f4de6fba#1
+POLICYID=$(cat ppbl-course-02/project-02/output/policyid.txt)
+TOKENNAME=52455354
+MINTAMOUNT=10
+SCRIPTFILE="ppbl-course-02/project-02/output/my-minting-script.plutus"
+REDEEMERFILE="ppbl-course-02/project-02/output/redeemer.json"
+
+cardano-cli transaction build \
+--babbage-era \
+--testnet-magic 1 \
+--tx-in $TXIN \
+--tx-in $TXIN2 \
+--tx-out $MINTER+1500000+"$MINTAMOUNT $POLICYID.$TOKENNAME" \
+--change-address $MINTER \
+--mint "$MINTAMOUNT $POLICYID.$TOKENNAME" \
+--mint-script-file $SCRIPTFILE \
+--mint-redeemer-file $REDEEMERFILE \
+--tx-in-collateral $COLLATERAL \
+--protocol-params-file ../../preprod-protocol.json \
+--out-file mint-token-plutus.raw
+
+cardano-cli transaction sign \
+--signing-key-file $MINTERKEY \
+--testnet-magic 1 \
+--tx-body-file mint-token-plutus.raw \
+--out-file mint-token-plutus.signed
+
+cardano-cli transaction submit \
+--tx-file mint-token-plutus.signed \
+--testnet-magic 1
+
+#metadata in one transaction (w2 to w2)
+
+TXIN=99cdf993003fc0840e0c3e5be59af37082d8cac1221e36292e77cbf3388e38e7#0
+SENDERADDRESS=addr_test1qqrtlxmspu5tg84c2ll4mxp56jfhyaf0qxxgra4jwnl9pcpr767ztltagrhzgyt4zaamareauncm5pw8eys0a57mjc4stuc9yu
+SENDERKEY=payment.skey
+METADATA_JSON_FILE=simple-metadata.json
+
+
+cardano-cli transaction build \
+--babbage-era \
+--testnet-magic 1 \
+--tx-in $TXIN \
+--change-address $SENDERADDRESS \
+--metadata-json-file $METADATA_JSON_FILE \
+--protocol-params-file ../../preprod-protocol.json \
+--out-file tx-with-metadata.raw
+
+cardano-cli transaction sign \
+--signing-key-file $SENDERKEY \
+--testnet-magic 1 \
+--tx-body-file tx-with-metadata.raw \
+--out-file tx-with-metadata.signed
+
+cardano-cli transaction submit \
+--tx-file tx-with-metadata.signed \
+--testnet-magic 1
+
+
+
+
+##minting nft transaction##
+#gerar policy id
+
+
+#get address owner hash
+
+cardano-cli address key-hash --payment-verification-key-file payment.vkey
+
+touch my-first-policy.script
+#write in file 
+{
+    "keyHash": "22117fbd0f86a213ae4f4d824cd0d38eea29e49764ae22f5f50ba3d3",
+    "type": "sig"
+}
+
+#substitute keyhash value for your address hash
+
+cardano-cli transaction policyid --script-file my-first-policy.script
+
+
+#create nft.json according to CIP-25 definition of NFT.
+
+POLICYID=b07e93bbd62bf5f0fdb6243d58564bae2a5b80c7f6917faf1f7bf4d8
+TXIN=8c5758c2d78675b904c9ac206ec03c71aaf68c881e5c00f36cca2147b7ddd09c#0
+MINTERKEY=payment.skey
+MINTER=addr_test1qq524yfk9emdh0r9xl37afv7d2nxpva3r8v2qvsj9dy5l8u6zqhd5s8yv6rvrmgmdf75j4v9p5yrhawlhjm3n0lf3dhsnrvwwn
+ASSETNAME="54455354"
+#"string" converter para hexadecimal pro tokenname1
+POLICYSCRIPT="nft-policy.script"
+METADATA_JSON_FILE="nft.json"
+
+cardano-cli transaction build \
+--babbage-era \
+--testnet-magic 1 \
+--tx-in $TXIN \
+--tx-out $MINTER+"2000000 + 1 $POLICYID.$ASSETNAME" \
+--mint "1 $POLICYID.$ASSETNAME" \
+--mint-script-file $POLICYSCRIPT \
+--change-address $MINTER \
+--metadata-json-file $METADATA_JSON_FILE \
+--protocol-params-file ../../preprod-protocol.json \
+--out-file mint-nft.raw
+
+cardano-cli transaction sign \
+--signing-key-file $MINTERKEY \
+--testnet-magic 1 \
+--tx-body-file mint-nft.raw \
+--out-file mint-nft.signed
+
+cardano-cli transaction submit \
+--tx-file mint-nft.signed \
+--testnet-magic 1
+
+
+#create script  address from a plutus script
+
+
+#create .plutus file from .hs script
+
+cabal update
+cabal build
+cabal repl
+
+#use compiler function that creates .plutus from validator file
+writePpblScript 
+
+
+
+cardano-cli address build --payment-script-file MySecondValidator.plutus --testnet-magic 1 --out-file second_val.addr
+
+#to interact with it, one needs to send a transaction that has a datum
+
+#get public key hash
+
+cardano-cli address key-hash --payment-verification-key-file payment.vkey
+
+#edit compiler with these values and create Datum. Hashing the datum
+
+cardano-cli transaction hash-script-data --script-data-file PpblDatum.json >> sale.hash
+
+#send transaction with hashed datum
+
+#address of validator
+s_address=addr_test1wqnjg648w2gh2cmutxaldhyvl56lnywplw367rxys3ntwrqxwwe8y
+
+#hash of utxo of buyer (w2)
+txhash=83e6bc062754a547b2e25217ef45dd6a7fa954b21e2288c10c3c59bd56131f07
+txix=0
+
+#ammount to send to validator. must match the datum file
+s_output=20000000
+
+#from sale.hash 
+datum_hash=0367b2bbc4df90780c826af8240168108010accc20d5284c0bef0929441eb255
+
+#buyer address (w2)
+address=addr_test1qqrtlxmspu5tg84c2ll4mxp56jfhyaf0qxxgra4jwnl9pcpr767ztltagrhzgyt4zaamareauncm5pw8eys0a57mjc4stuc9yu
+
+#owner of the script address (w3)
+o_address=addr_test1qq6xpuxrvn9eyq3lp4kkgldyc7x80e2j0pa9034e8vj43ztmqq7mzhrjn5e6lhqc4s9nkkk6u055pgfd49623x6wjg6q8dy684
+
+#hashed address of owner of script
+o_hash=3460f0c364cb92023f0d6d647da4c78c77e552787a57c6b93b255889
+
+
+cardano-cli transaction build --babbage-era --testnet-magic 1  --tx-in $txhash#$txix  --tx-out $s_address+$s_output --tx-out-datum-hash $datum_hash --change-address $address --out-file tx.raw
+
+cardano-cli transaction sign --signing-key-file payment.skey --testnet-magic 1 --tx-body-file tx.raw --out-file tx.signed
+
+cardano-cli transaction submit --tx-file tx.signed --testnet-magic 1
+
+
+#unlock funds, redeemer
+
+#buyer_address (w2)
+b_add=addr_test1qqrtlxmspu5tg84c2ll4mxp56jfhyaf0qxxgra4jwnl9pcpr767ztltagrhzgyt4zaamareauncm5pw8eys0a57mjc4stuc9yu
+
+#hash of buyer address
+b_hash=06bf9b700f28b41eb857ff5d9834d49372752f018c81f6b274fe50e0
+
+#seller_address (w1)
+s_add=addr_test1qq524yfk9emdh0r9xl37afv7d2nxpva3r8v2qvsj9dy5l8u6zqhd5s8yv6rvrmgmdf75j4v9p5yrhawlhjm3n0lf3dhsnrvwwn
+
+s_hash=28aa91362e76dbbc6537e3eea59e6aa660b3b119d8a032122b494f9f
+
+
+#buyer collateral utxo (buyer does the datum transaction and the redeemer transaction if buying. updating or canceling is the seller. see validator code)
+#collateral utxo
+
+
+tx_hash_col=4116cf1df0e67caaa69488984c7946e723ef32c5be01698292b6ccc107e82caa 
+tx_ix_col=0
+
+#buyer utxo to pay for the fee to the contract owner
+tx_hash_fee=a94d61d21879757b5b0f57d7b6e8b9f98cb845f0a736328576a0eff9050162ba 
+tx_ix_fee=0
+
+
+#ammount locked
+amm=20000000
+
+
+#owner of the script address (w3)
+o_address=addr_test1qq6xpuxrvn9eyq3lp4kkgldyc7x80e2j0pa9034e8vj43ztmqq7mzhrjn5e6lhqc4s9nkkk6u055pgfd49623x6wjg6q8dy684
+
+#hashed address of owner of script
+o_hash=3460f0c364cb92023f0d6d647da4c78c77e552787a57c6b93b255889
+
+
+
+#fee to pay to owner
+fee=2000000
+
+#script address
+sc_address=addr_test1wrf29c0rktj4k6630ax2d95h4zzfd5tcq5rpgml980lzp6qy48urh
+
+
+#tx hash of script utxo to redeem
+
+tx_hash=a94d61d21879757b5b0f57d7b6e8b9f98cb845f0a736328576a0eff9050162ba 
+tx_ix=1
+
+cardano-cli transaction build --babbage-era --testnet-magic 1 --tx-in $tx_hash#$tx_ix --tx-in-script-file ../ppbl-course-02/project-204/src/Ppbl/output/MySecondValidator.plutus --tx-in-datum-file ../ppbl-course-02/project-204/src/Ppbl/output/PpblDatum.json --tx-in-redeemer-file ../ppbl-course-02/project-204/src/Ppbl/output/redeemer.json --tx-in $tx_hash_fee#$tx_ix_fee --tx-in-collateral $tx_hash_col#$tx_ix_col --required-signer-hash $b_hash --tx-out $o_address+$fee --tx-out $s_add+$amm --change-address $b_add --protocol-params-file ../../preprod-protocol.json --out-file tx_cs.body
+
+cardano-cli transaction sign --signing-key-file payment.skey --testnet-magic 1 --tx-body-file tx_cs.body --out-file tx_cs.signed
+
+cardano-cli transaction submit --tx-file tx_cs.signed --testnet-magic 1
+
+
+
+
+
+INTERACT WITH SCRIPT ADDRESS THAT IS A TOKEN FAUCET: addr_test1wqunsl063ezhn67r72uxetvjugrmnnrkqu8pmd9exc6lcdcgnt2uf
+
+#create script  address from a plutus script
+
+
+#create .plutus file from .hs script
+
+cabal update
+cabal build
+cabal repl
+
+#use compiler function that creates .plutus from validator file
+writeFaucetScript 
+
+
+#to build the script address 
+cardano-cli address build --payment-script-file MySecondValidator.plutus --testnet-magic 1 --out-file second_val.addr
+
+#to interact with it, one needs to send a transaction that has a datum
+
+#get public key hash
+
+cardano-cli address key-hash --payment-verification-key-file payment.vkey
+
+#edit compiler with these values and create Datum. Hashing the datum
+
+cardano-cli transaction hash-script-data --script-data-file PpblDatum.json >> sale.hash
+
+or if datum is just a number
+cardano-cli transaction hash-script-data --script-data-value 1618 >> datum.hash
+
+
+#redeemer.json create file with pubkey hash
+{"constructor":0,"fields":[{"bytes":"28aa91362e76dbbc6537e3eea59e6aa660b3b119d8a032122b494f9f"}]}
+
+
+#send transaction with hashed datum and redeemer
+
+
+SENDER=addr_test1qq524yfk9emdh0r9xl37afv7d2nxpva3r8v2qvsj9dy5l8u6zqhd5s8yv6rvrmgmdf75j4v9p5yrhawlhjm3n0lf3dhsnrvwwn
+SENDERKEY=payment.skey
+CONTRACT_TXIN=0724c1a31d864fdabd002d9d824ec105f4b9bae6f4e980e28988804160465fb0#3
+AUTH_TOKEN_TXIN=1d337532563160c6b4e1d2036801929e98b67e55fdc1eec1da4aa5ac0747bb3e#0
+FEE_TXIN=54af90440671ea0404cb80af9b2543c38ce045d6e3057f07a67551b6d7cebc8d#0
+COLLATERAL=1bdb833967a199fb4d1db0f90a9f8dd298903165a40c61aba0e483c43a81a954#0
+PLUTUS_SCRIPT_FILE="gimb_script.plutus"
+ASSET="fb45417ab92a155da3b31a8928c873eb9fd36c62184c736f189d334c.7447696d62616c"
+AUTH_TOKEN="748ee66265a1853c6f068f86622e36b0dda8edfa69c689a7dd232c60.5050424c32303232416363657373546f6b656e"
+TOKENS_BACK_TO_CONTRACT=487000 
+CONTRACTADDR=addr_test1wqunsl063ezhn67r72uxetvjugrmnnrkqu8pmd9exc6lcdcgnt2uf
+DATUMHASH=$(cat datum.hash)
+
+cardano-cli transaction build \
+--babbage-era \
+--testnet-magic 1 \
+--tx-in $AUTH_TOKEN_TXIN \
+--tx-in $FEE_TXIN \
+--tx-in $CONTRACT_TXIN \
+--tx-in-script-file $PLUTUS_SCRIPT_FILE \
+--tx-in-datum-value 1618 \
+--tx-in-redeemer-file redeemer.json \
+--tx-in-collateral $COLLATERAL \
+--tx-out $SENDER+"1500000 + 1000 $ASSET" \
+--tx-out $SENDER+"1500000 + 1 $AUTH_TOKEN" \
+--tx-out $CONTRACTADDR+"2000000 + $TOKENS_BACK_TO_CONTRACT $ASSET" \
+--tx-out-datum-hash $DATUMHASH \
+--change-address $SENDER \
+--protocol-params-file ../../preprod-protocol.json \
+--out-file unlock.raw
+
+cardano-cli transaction sign \
+--signing-key-file $SENDERKEY \
+--testnet-magic 1 \
+--tx-body-file unlock.raw \
+--out-file unlock.signed
+
+cardano-cli transaction submit \
+--tx-file unlock.signed \
+--testnet-magic 1
+
+CREATING MY TOKEN FAUCET
+#create my script address
+
+cardano-cli address build \
+--payment-script-file RASC_faucet.plutus \
+--testnet-magic 1 \
+--out-file RASC_faucet.addr
+
+#prepare datum (number 14)
+
+cardano-cli transaction hash-script-data --script-data-value 14 >> datum.hash
+
+
+#locking transaction
+
+
+SENDER=$(cat payment.addr)
+SENDERKEY=payment.skey
+TXIN1=8cd835075e33bba5a82a8bc9653368833a7ead0641f3c8fd1065b08ae9fe7a9f#0
+TXIN2=54af90440671ea0404cb80af9b2543c38ce045d6e3057f07a67551b6d7cebc8d#1
+CONTRACTADDR=$(cat RASC_faucet.addr)
+DATUMHASH=$(cat datum.hash)
+ASSET=b07e93bbd62bf5f0fdb6243d58564bae2a5b80c7f6917faf1f7bf4d8.52415343
+NUM_TOKENS=25
+
+cardano-cli transaction build \
+--babbage-era \
+--tx-in $TXIN1 \
+--tx-in $TXIN2 \
+--tx-out $CONTRACTADDR+"1500000 + $NUM_TOKENS $ASSET" \
+--tx-out-datum-hash $DATUMHASH \
+--change-address $SENDER \
+--protocol-params-file ../../preprod-protocol.json \
+--out-file tx-lock.raw \
+--testnet-magic 1
+
+cardano-cli transaction sign \
+--signing-key-file $SENDERKEY \
+--testnet-magic 1 \
+--tx-body-file tx-lock.raw \
+--out-file tx-lock.signed
+
+cardano-cli transaction submit \
+--tx-file tx-lock.signed \
+--testnet-magic 1
+
+#unlocking transaction
+
+
+#redeemer.json create file with pubkey hash
+{"constructor":0,"fields":[{"bytes":"28aa91362e76dbbc6537e3eea59e6aa660b3b119d8a032122b494f9f"}]}
+
+
+#send transaction with hashed datum and redeemer
+
+
+SENDER=addr_test1qq524yfk9emdh0r9xl37afv7d2nxpva3r8v2qvsj9dy5l8u6zqhd5s8yv6rvrmgmdf75j4v9p5yrhawlhjm3n0lf3dhsnrvwwn
+SENDERKEY=payment.skey
+CONTRACT_TXIN=2e40c9b85486927cb25e2636b0da8565ba857fc3f3559499c2edf6c8be8f3156#1
+AUTH_TOKEN_TXIN=8cd835075e33bba5a82a8bc9653368833a7ead0641f3c8fd1065b08ae9fe7a9f#2
+FEE_TXIN=2e40c9b85486927cb25e2636b0da8565ba857fc3f3559499c2edf6c8be8f3156#0
+COLLATERAL=1bdb833967a199fb4d1db0f90a9f8dd298903165a40c61aba0e483c43a81a954#0
+PLUTUS_SCRIPT_FILE="RASC_faucet.plutus"
+ASSET="b07e93bbd62bf5f0fdb6243d58564bae2a5b80c7f6917faf1f7bf4d8.52415343"
+AUTH_TOKEN="748ee66265a1853c6f068f86622e36b0dda8edfa69c689a7dd232c60.5050424c32303232416363657373546f6b656e"
+TOKENS_BACK_TO_CONTRACT=24
+CONTRACTADDR=addr_test1wzwhcytapqaq75fczezhvz8q8rlduqe46u3g4zyltgwrgpc2a3g57
+DATUMHASH=$(cat datum.hash)
+
+cardano-cli transaction build \
+--babbage-era \
+--testnet-magic 1 \
+--tx-in $AUTH_TOKEN_TXIN \
+--tx-in $FEE_TXIN \
+--tx-in $CONTRACT_TXIN \
+--tx-in-script-file $PLUTUS_SCRIPT_FILE \
+--tx-in-datum-value 14 \
+--tx-in-redeemer-file redeemer.json \
+--tx-in-collateral $COLLATERAL \
+--tx-out $SENDER+"1500000 + 1 $ASSET" \
+--tx-out $SENDER+"1500000 + 1 $AUTH_TOKEN" \
+--tx-out $CONTRACTADDR+"2000000 + $TOKENS_BACK_TO_CONTRACT $ASSET" \
+--tx-out-datum-hash $DATUMHASH \
+--change-address $SENDER \
+--protocol-params-file ../../preprod-protocol.json \
+--out-file unlock.raw
+
+cardano-cli transaction sign \
+--signing-key-file $SENDERKEY \
+--testnet-magic 1 \
+--tx-body-file unlock.raw \
+--out-file unlock.signed
+
+cardano-cli transaction submit \
+--tx-file unlock.signed \
+--testnet-magic 1
+
+
+
+

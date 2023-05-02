@@ -1,0 +1,74 @@
+export PATH="$HOME/.local/bin:$PATH"
+
+#PS1="MyTestPrompt> "
+
+#read -p 'NODE_CONFIG: ' NODE_CONFIG
+
+#export LD_LIBRARY_PATH=/usr/local/lib:
+export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+export NODE_HOME=/home/pp/cardano-my-node
+export NODE_CONFIG=mainnet
+#export NODE_CONFIG=preprod
+export CARDANO_NODE_SOCKET_PATH=/home/pp/cardano-my-node/$NODE_CONFIG-db/socket
+
+#alias cardano-node='/home/pp/.local/bin/cardano-node'
+#alias bash
+alias savebash='source ~/.bashrc'
+alias editbashrc='cd && vim ~/.bashrc && source ~/.bashrc'
+alias update='sudo apt update && sudo apt upgrade && sudo apt dist-upgrade'
+
+#alias cardano node (by me)
+alias cdcn='cd $NODE_HOME'
+alias cdcnm='cd $NODE_HOME/mainnet-files'
+alias cdcnp='cd $NODE_HOME/preprod-files'
+
+#alias cns='cd $NODE_HOME && ./gLiveView.sh'
+#cardano-cli query tip --mainnet
+#cardano-cli query tip --testnet-magic 1
+
+alias stopcnode='sudo systemctl stop mainnet-cardano-node'
+alias startcnode='sudo systemctl stop mainnet-cardano-node && sudo systemctl enable mainnet-cardano-node && sudo systemctl start mainnet-cardano-node'
+alias statuscnode='sudo systemctl status mainnet-cardano-node'
+alias jcnode='journalctl -u mainnet-cardano-node.service -f -o cat'
+alias tipcnode='cardano-cli query tip --mainnet'
+
+alias stopcnode1='sudo systemctl stop preprod-cardano-node'
+alias startcnode1='sudo systemctl stop preprod-cardano-node && sudo systemctl enable preprod-cardano-node && sudo systemctl start preprod-cardano-node'
+alias statuscnode1='sudo systemctl status preprod-cardano-node'
+alias jcnode1='journalctl -u preprod-cardano-node.service -f -o cat'
+alias tipcnode1='cardano-cli query tip --testnet-magic 1'
+
+#plutus
+alias nix='cd && cd $NODE_HOME/preprod-files/plutus-apps && nix-shell --extra-experimental-features flakes'
+
+#alias cardano-submit-api
+#mainnet
+alias statussubmit='sudo systemctl status tx-api.service'
+alias stopsubmit='sudo systemctl stop tx-api.service'
+alias startsubmit='sudo systemctl stop tx-api.service && sudo systemctl enable tx-api.service && sudo systemctl start tx-api.service'
+alias jsubmit='journalctl -u tx-api.service -f -o cat'
+
+
+#preprod testnet --testnet-magic 1
+alias statussubmit1='sudo systemctl status preprod-tx-api.service'
+alias stopsubmit1='sudo systemctl stop preprod-tx-api.service'
+alias startsubmit1='sudo systemctl stop preprod-tx-api.service && sudo systemctl enable preprod-tx-api.service && sudo systemctl start preprod-tx-api.service'
+
+alias jsubmit1='journalctl -u preprod-tx-api.service -f -o cat'
+
+#mainnet
+alias onmainnet='NODE_CONFIG=mainnet && CARDANO_NODE_SOCKET_PATH=/home/pp/cardano-my-node/mainnet-db/socket && sudo systemctl stop preprod-cardano-node && sudo systemctl stop preprod-tx-api.service && sudo systemctl stop mainnet-cardano-node && sudo systemctl daemon-reload && sudo systemctl enable mainnet-cardano-node && sudo systemctl start mainnet-cardano-node && sudo systemctl stop tx-api.service && sudo systemctl enable tx-api.service && sudo systemctl start tx-api.service'
+
+alias mainnetvars='NODE_CONFIG=mainnet && CARDANO_NODE_SOCKET_PATH=/home/pp/cardano-my-node/mainnet-db/socket '
+
+alias queryutxom='cardano-cli query utxo --address $(cat payment.addr) --mainnet'
+
+alias onpreprod='NODE_CONFIG=preprod && CARDANO_NODE_SOCKET_PATH=/home/pp/cardano-my-node/preprod-db/socket && sudo systemctl stop mainnet-cardano-node && sudo systemctl stop tx-api.service && sudo systemctl stop preprod-cardano-node && sudo systemctl daemon-reload && sudo systemctl enable preprod-cardano-node && sudo systemctl start preprod-cardano-node && sudo systemctl stop preprod-tx-api.service && sudo systemctl enable preprod-tx-api.service && sudo systemctl start preprod-tx-api.service'
+
+alias preprodvars='NODE_CONFIG=preprod && CARDANO_NODE_SOCKET_PATH=/home/pp/cardano-my-node/preprod-db/socket'
+
+alias queryutxopp='cardano-cli query utxo --address $(cat payment.addr) --testnet-magic 1'
+
+

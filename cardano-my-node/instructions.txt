@@ -1,0 +1,152 @@
+turn BP node into relay node
+
+
+sudo systemctl stop cardano-node
+
+get topology for relay:
+
+wget https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/mainnet-topology.json
+
+
+
+cat > $NODE_HOME/startRelayNode1.sh << EOF 
+#!/bin/bash
+DIRECTORY=$NODE_HOME
+PORT=6000
+HOSTADDR=0.0.0.0
+TOPOLOGY=\${DIRECTORY}/${NODE_CONFIG}-topology.json
+DB_PATH=\${DIRECTORY}/${NODE_CONFIG}-db
+SOCKET_PATH=\${DIRECTORY}/${NODE_CONFIG}-db/socket
+CONFIG=\${DIRECTORY}/${NODE_CONFIG}-config.json
+/usr/local/bin/cardano-node run +RTS -N -A16m -qg -qb -RTS --topology \${TOPOLOGY} --database-path \${DB_PATH} --socket-path \${SOCKET_PATH} --host-addr \${HOSTADDR} --port \${PORT} --config \${CONFIG}
+EOF
+
+
+
+chmod +x $NODE_HOME/startRelayNode1.sh 
+
+
+cat > $NODE_HOME/cardano-node.service << EOF 
+# The Cardano node service (part of systemd)
+# file: /etc/systemd/system/cardano-node.service 
+
+[Unit]
+Description     = Cardano node service
+Wants           = network-online.target
+After           = network-online.target 
+
+[Service]
+User            = ${USER}
+Type            = simple
+WorkingDirectory= ${NODE_HOME}
+ExecStart       = /bin/bash -c '${NODE_HOME}/startRelayNode1.sh'
+KillSignal=SIGINT
+RestartKillSignal=SIGINT
+TimeoutStopSec=300
+LimitNOFILE=32768
+Restart=always
+RestartSec=5
+SyslogIdentifier=cardano-node
+
+[Install]
+WantedBy	= multi-user.target
+EOF
+
+
+sudo mv $NODE_HOME/cardano-node.service /etc/systemd/system/cardano-node.service
+
+sudo chmod 644 /etc/systemd/system/cardano-node.service
+
+
+sudo systemctl daemon-reload
+sudo systemctl enable cardano-node
+
+sudo systemctl status cardano-node
+
+
+###
+### On relaynode1
+###
+cat > $NODE_HOME/topologyUpdater.sh << EOF
+#!/bin/bash
+# shellcheck disable=SC2086,SC2034
+ 
+USERNAME=$(whoami)
+CNODE_PORT=6000 # must match your relay node port as set in the startup command
+CNODE_HOSTNAME="CHANGE ME"  # optional. must resolve to the IP you are requesting from
+CNODE_BIN="/usr/local/bin"
+CNODE_HOME=$NODE_HOME
+CNODE_LOG_DIR="\${CNODE_HOME}/logs"
+GENESIS_JSON="\${CNODE_HOME}/${NODE_CONFIG}-shelley-genesis.json"
+NETWORKID=\$(jq -r .networkId \$GENESIS_JSON)
+CNODE_VALENCY=1   # optional for multi-IP hostnames
+NWMAGIC=\$(jq -r .networkMagic < \$GENESIS_JSON)
+[[ "\${NETWORKID}" = "Mainnet" ]] && HASH_IDENTIFIER="--mainnet" || HASH_IDENTIFIER="--testnet-magic \${NWMAGIC}"
+[[ "\${NWMAGIC}" = "764824073" ]] && NETWORK_IDENTIFIER="--mainnet" || NETWORK_IDENTIFIER="--testnet-magic \${NWMAGIC}"
+ 
+export PATH="\${CNODE_BIN}:\${PATH}"
+export CARDANO_NODE_SOCKET_PATH="\${CNODE_HOME}/${NODE_CONFIG}-db/socket"
+ 
+blockNo=\$(/usr/local/bin/cardano-cli query tip \${NETWORK_IDENTIFIER} | jq -r .block )
+ 
+# Note:
+# if you run your node in IPv4/IPv6 dual stack network configuration and want announced the
+# IPv4 address only please add the -4 parameter to the curl command below  (curl -4 -s ...)
+if [ "\${CNODE_HOSTNAME}" != "CHANGE ME" ]; then
+  T_HOSTNAME="&hostname=\${CNODE_HOSTNAME}"
+else
+  T_HOSTNAME=''
+fi
+
+if [ ! -d \${CNODE_LOG_DIR} ]; then
+  mkdir -p \${CNODE_LOG_DIR};
+fi
+ 
+curl -s "https://api.clio.one/htopology/v1/?port=\${CNODE_PORT}&blockNo=\${blockNo}&valency=\${CNODE_VALENCY}&magic=\${NWMAGIC}\${T_HOSTNAME}" | tee -a \$CNODE_LOG_DIR/topologyUpdater_lastresult.json
+EOF
+
+
+###
+### On relaynode1
+###
+cd $NODE_HOME
+chmod +x topologyUpdater.sh
+./topologyUpdater.sh
+
+
+###
+### On relaynode1
+###
+cat > $NODE_HOME/crontab-fragment.txt << EOF
+33 * * * * ${NODE_HOME}/topologyUpdater.sh
+EOF
+crontab -l | cat - ${NODE_HOME}/crontab-fragment.txt > ${NODE_HOME}/crontab.txt && crontab ${NODE_HOME}/crontab.txt
+rm ${NODE_HOME}/crontab-fragment.txt
+
+
+
+#AFTER 4 HOURS
+
+
+###
+### On relaynode1
+###
+cat > $NODE_HOME/relay-topology_pull.sh << EOF
+#!/bin/bash
+BLOCKPRODUCING_IP=relays-new.cardano-mainnet.iohk.io
+BLOCKPRODUCING_PORT=6000
+curl -s -o $NODE_HOME/${NODE_CONFIG}-topology.json "https://api.clio.one/htopology/v1/fetch/?max=20&customPeers=\${BLOCKPRODUCING_IP}:\${BLOCKPRODUCING_PORT}:1|relays-new.cardano-mainnet.iohk.io:3001:2"
+EOF
+
+###
+### On relaynode1
+###
+chmod +x relay-topology_pull.sh
+./relay-topology_pull.sh
+
+
+
+###
+### On relaynode1
+###
+sudo systemctl restart cardano-node
