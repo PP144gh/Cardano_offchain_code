@@ -1,3 +1,0 @@
-[submodule "cardano-my-node/ppbl-front-end-template"]
-	path = cardano-my-node/ppbl-front-end-template
-	url = https://gitlab.com/gimbalabs/plutus-pbl-summer-2022/ppbl-front-end-template
